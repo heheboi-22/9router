@@ -23,6 +23,7 @@ import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
 import BulkImportGrokCliModal from "./BulkImportGrokCliModal";
+import BulkImportZcodeModal from "./BulkImportZcodeModal";
 import CustomConfigCard from "./CustomConfigCard";
 import AutoPingScheduleModal from "./AutoPingScheduleModal";
 import WebLoginButton, { WEB_LOGIN_PROVIDERS } from "../components/WebLoginButton.js";
@@ -58,6 +59,7 @@ export default function ProviderDetailPage() {
   const [addConnectionError, setAddConnectionError] = useState("");
   const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
   const [showBulkImportGrokCli, setShowBulkImportGrokCli] = useState(false);
+  const [showBulkImportZcode, setShowBulkImportZcode] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditNodeModal, setShowEditNodeModal] = useState(false);
   const [showBulkProxyModal, setShowBulkProxyModal] = useState(false);
@@ -112,6 +114,11 @@ export default function ProviderDetailPage() {
     // Xiaomi Desktop: auto-import local credentials first, OAuth as fallback
     if (providerId === "xiaomi-mimo") {
       setShowXiaomiMimoModal(true);
+      return;
+    }
+    // ZCode: import JSON credentials modal
+    if (providerId === "zcode") {
+      setShowBulkImportZcode(true);
       return;
     }
     if (isOAuth) {
@@ -1646,6 +1653,11 @@ export default function ProviderDetailPage() {
                         {translate("Bulk Add")}
                       </Button>
                     )}
+                    {providerId === "zcode" && (
+                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportZcode(true)}>
+                        {translate("Import JSON")}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       icon="add"
@@ -1731,6 +1743,18 @@ export default function ProviderDetailPage() {
                       className="w-full sm:w-auto"
                     >
                       {translate("Bulk Add")}
+                    </Button>
+                  )}
+                  {providerId === "zcode" && (
+                    <Button
+                      size="sm"
+                      icon="playlist_add"
+                      variant="secondary"
+                      onClick={() => setShowBulkImportZcode(true)}
+                      title={translate("Import ZCode credentials from JSON")}
+                      className="w-full sm:w-auto"
+                    >
+                      {translate("Import JSON")}
                     </Button>
                   )}
                   {hasDualAuthModes ? (
@@ -1965,6 +1989,14 @@ export default function ProviderDetailPage() {
         <BulkImportGrokCliModal
           isOpen={showBulkImportGrokCli}
           onClose={() => setShowBulkImportGrokCli(false)}
+          onSuccess={fetchConnections}
+        />
+      )}
+
+      {providerId === "zcode" && (
+        <BulkImportZcodeModal
+          isOpen={showBulkImportZcode}
+          onClose={() => setShowBulkImportZcode(false)}
           onSuccess={fetchConnections}
         />
       )}

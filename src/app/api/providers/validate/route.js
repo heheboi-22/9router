@@ -326,6 +326,20 @@ export async function POST(request) {
           if (!isValid) error = getNousApiKeyValidationError(res.status);
           break;
         }
+        case "zcode": {
+          const res = await fetch("https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.17.2", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "X-Device-Mid": "242cf487-de63-4edd-b3bb-2e5aa4baaa28",
+              "User-Agent": "ZCode/3.17.2",
+              "x-zcode-app-version": "3.17.2",
+            },
+          });
+          isValid = res.status === 200;
+          if (!isValid) error = "Invalid ZCode credentials or session expired";
+          break;
+        }
         case "glm":
         case "glm-cn":
         case "kimi":

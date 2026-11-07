@@ -171,6 +171,19 @@ const OAUTH_TEST_CONFIG = {
     refreshable: true,
     useApiKey: true,
   },
+  zcode: {
+    url: "https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.17.2",
+    method: "GET",
+    buildHeaders: (token, connection) => ({
+      Authorization: `Bearer ${token}`,
+      "x-api-key": token,
+      "X-Device-Mid": connection?.providerSpecificData?.deviceMid || "242cf487-de63-4edd-b3bb-2e5aa4baaa28",
+      "User-Agent": "ZCode/3.17.2 ai-sdk/provider-utils/4.0.27 runtime/node.js/26",
+      "x-zcode-app-version": "3.17.2",
+      "x-title": "Z Code@cli",
+    }),
+    refreshable: false,
+  },
 };
 
 /**
@@ -439,9 +452,11 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
 
   try {
     const testUrl = config.buildUrl ? config.buildUrl(accessToken) : config.url;
-    const headers = config.noAuth
-      ? { ...config.extraHeaders }
-      : { [config.authHeader]: `${config.authPrefix}${accessToken}`, ...config.extraHeaders };
+    const headers = config.buildHeaders
+      ? config.buildHeaders(accessToken, connection)
+      : (config.noAuth
+        ? { ...config.extraHeaders }
+        : { [config.authHeader]: `${config.authPrefix}${accessToken}`, ...config.extraHeaders });
     const fetchOpts = { method: config.method, headers };
     if (config.body) fetchOpts.body = config.body;
     const res = await fetchWithConnectionProxy(testUrl, fetchOpts, effectiveProxy);
@@ -464,9 +479,11 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
       if (tokens) {
         const retryToken = config.useApiKey ? (tokens.apiKey || tokens.accessToken) : tokens.accessToken;
         const retryUrl = config.buildUrl ? config.buildUrl(retryToken) : testUrl;
-        const retryHeaders = config.noAuth
-          ? { ...config.extraHeaders }
-          : { [config.authHeader]: `${config.authPrefix}${retryToken}`, ...config.extraHeaders };
+        const retryHeaders = config.buildHeaders
+          ? config.buildHeaders(retryToken, connection)
+          : (config.noAuth
+            ? { ...config.extraHeaders }
+            : { [config.authHeader]: `${config.authPrefix}${retryToken}`, ...config.extraHeaders });
         const retryOpts = { method: config.method, headers: retryHeaders };
         if (config.body) retryOpts.body = config.body;
         const retryRes = await fetchWithConnectionProxy(retryUrl, retryOpts, effectiveProxy);
@@ -675,6 +692,21 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
           valid,
           error: valid ? null : getNousApiKeyValidationError(res.status),
         };
+      }
+      case "zcode": {
+        const token = connection.apiKey || connection.accessToken || connection.providerSpecificData?.zcodeJwtToken;
+        const deviceMid = connection.providerSpecificData?.deviceMid || "242cf487-de63-4edd-b3bb-2e5aa4baaa28";
+        const res = await fetchWithConnectionProxy("https://zcode.z.ai/api/v1/zcode-plan/billing/balance?app_version=3.17.2", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "X-Device-Mid": deviceMid,
+            "User-Agent": "ZCode/3.17.2",
+            "x-zcode-app-version": "3.17.2",
+          },
+        }, effectiveProxy);
+        const valid = res.status === 200;
+        return { valid, error: valid ? null : "Invalid ZCode credentials or session expired" };
       }
       case "glm": {
         const res = await fetchWithConnectionProxy("https://api.z.ai/api/anthropic/v1/messages", {

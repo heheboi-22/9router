@@ -150,6 +150,48 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
     if (choice?.finish_reason) finishReason = choice.finish_reason;
     if (chunk?.usage && typeof chunk.usage === "object") usage = chunk.usage;
 
+    // Claude format SSE handling (event: content_block_delta, etc.)
+    if (chunk?.type) {
+      if (chunk.type === "message_start" && chunk.message) {
+        if (chunk.message.id) first.id = chunk.message.id;
+        if (chunk.message.model) first.model = chunk.message.model;
+        if (chunk.message.usage) {
+          usage = {
+            prompt_tokens: chunk.message.usage.input_tokens || 0,
+            completion_tokens: chunk.message.usage.output_tokens || 0,
+            total_tokens: (chunk.message.usage.input_tokens || 0) + (chunk.message.usage.output_tokens || 0),
+          };
+        }
+      } else if (chunk.type === "content_block_delta") {
+        if (chunk.delta?.type === "text_delta" && typeof chunk.delta.text === "string") {
+          contentParts.push(chunk.delta.text);
+        } else if (chunk.delta?.type === "thinking_delta" && typeof chunk.delta.thinking === "string") {
+          reasoningParts.push(chunk.delta.thinking);
+        } else if (chunk.delta?.type === "input_json_delta" && typeof chunk.delta.partial_json === "string") {
+          const idx = chunk.index ?? 0;
+          if (toolCallMap.has(idx)) {
+            toolCallMap.get(idx).function.arguments += chunk.delta.partial_json;
+          }
+        }
+      } else if (chunk.type === "content_block_start" && chunk.content_block?.type === "tool_use") {
+        const idx = chunk.index ?? 0;
+        toolCallMap.set(idx, {
+          id: chunk.content_block.id || "",
+          type: "function",
+          function: { name: chunk.content_block.name || "", arguments: "" },
+        });
+      } else if (chunk.type === "message_delta") {
+        if (chunk.delta?.stop_reason) {
+          finishReason = chunk.delta.stop_reason === "end_turn" ? "stop" : chunk.delta.stop_reason;
+        }
+        if (chunk.usage?.output_tokens) {
+          if (!usage) usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+          usage.completion_tokens = chunk.usage.output_tokens;
+          usage.total_tokens = (usage.prompt_tokens || 0) + usage.completion_tokens;
+        }
+      }
+    }
+
     // Accumulate tool_calls from streaming deltas
     if (Array.isArray(delta.tool_calls)) {
       for (const tc of delta.tool_calls) {

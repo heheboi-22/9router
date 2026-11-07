@@ -776,6 +776,23 @@ export function parseQuotaData(provider, data) {
         }
         break;
 
+      case "zcode":
+        // ZCode Starter Plan tokens (500M pool on GLM-5.3-Flash)
+        if (data.quotas) {
+          Object.entries(data.quotas).forEach(([name, quota]) => {
+            normalizedQuotas.push({
+              name,
+              used: quota.used || 0,
+              total: quota.total || 0,
+              resetAt: quota.resetAt || null,
+              remainingPercentage: quota.remainingPercentage,
+              unit: quota.unit,
+              unlimited: quota.unlimited,
+            });
+          });
+        }
+        break;
+
       case "minimax-code":
       case "minimax-code-global":
         // Service already returns dashboard-shaped rows: a credits balance
